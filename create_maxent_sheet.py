@@ -1,4 +1,12 @@
+# This script takes the output from the Albright & Hayes Rule Based Learner and
+# converts it to an Excel spreadsheet that can be used to train a MaxEnt model.
+# This is quick and dirty, and not very efficient.
+
 import csv
+
+INFILE_NAME = 'CELEXFull.in'
+SUMFILE_NAME = 'CELEXFull_c75i75.sum'
+OUTFILE_NAME = 'maxent_out.csv'
 
 CONSTRAINTS_OFFSET = 3
 HEADERS_OFFSET = 2
@@ -64,7 +72,7 @@ def build_output_file(constraint_list, constraint_violations, freq_dict):
 	weights_start = "{}${}".format(starting_col, WEIGHTS_ROW)
 	weights_end = "{}${}".format(end_col, WEIGHTS_ROW)
 
-	with open('maxent_out.csv', 'w') as output_file:
+	with open(OUTFILE_NAME, 'w') as output_file:
 		writer = csv.writer(output_file, delimiter="\t")
 		writer.writerow(
 			[""] * CONSTRAINTS_OFFSET + constraint_list + MAXENT_HEADERS
@@ -114,7 +122,7 @@ def build_output_file(constraint_list, constraint_violations, freq_dict):
 						freq_dict.get((other_item[0], other_item[1]), 0)
 					)
 
-			# TODO: Refactor all this into a loop
+			# TODO: Would be nice to loop this
 			# Write in Harmony
 			harmony_index = get_col_index(
 				"Harmony", constraints_length
@@ -140,6 +148,7 @@ def build_output_file(constraint_list, constraint_violations, freq_dict):
 			min_row = i + HEADERS_OFFSET + 1
 			max_row = i + HEADERS_OFFSET + 1
 
+			# Get the range of rows corresponding to the same input form
 			while i >= 0 and sorted_violations[i - 1][0] == item[0]:
 				i -= 1
 				min_row = i + HEADERS_OFFSET + 1
@@ -147,6 +156,8 @@ def build_output_file(constraint_list, constraint_violations, freq_dict):
 			while i + 1 < len(sorted_violations) and sorted_violations[i + 1][0] == item[0]:
 				i += 1
 				max_row = i + HEADERS_OFFSET + 1
+
+			# Set Z to the sum of the eHarmonies for this input
 			z_index = get_col_index("Z", constraints_length)
 			eharmony_col = colnum_string(eharmony_index + 1)
 			z_value = Z_FORMULA.format(
@@ -163,7 +174,7 @@ def build_output_file(constraint_list, constraint_violations, freq_dict):
 			)
 			row[prob_index] = prob
 
-			# Write Candidate
+			# Write in Candidate
 			candidate_index = get_col_index(
 				"Candidate", constraints_length
 			)
@@ -206,8 +217,8 @@ def build_output_file(constraint_list, constraint_violations, freq_dict):
 
 			writer.writerow(row)
 
-with open('RuleBasedLearnerEnglishFiles/CELEXFull_copy.in', 'rb') as freq_file:
-	with open('RuleBasedLearnerEnglishFiles/CELEXFull_copy_c75i75.sum', 'rb'
+with open(INFILE_NAME, 'rb') as freq_file:
+	with open(SUMFILE_NAME, 'rb'
 			) as input_file:
 		reader = csv.reader(input_file, delimiter="\t")
 		# Skip headers
@@ -223,8 +234,10 @@ with open('RuleBasedLearnerEnglishFiles/CELEXFull_copy.in', 'rb') as freq_file:
 			output_form = row[5]
 			change = row[10]
 			change_parts = change.split("/")
+
 			# Get rid of morphological type
 			change = "/".join(change_parts[:2])
+
 			# TODO: Get contexts
 			# TODO: Deal with impugnment
 			constraint_name = "*MAP({})".format(change)
