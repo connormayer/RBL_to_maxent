@@ -4,8 +4,10 @@
 
 import csv
 
-INFILE_NAME = 'CELEXFull.in'
-SUMFILE_NAME = 'CELEXFull_c75i75.sum'
+DO_CONTEXTS = True
+
+INFILE_NAME = 'CELEXFull_with_wugs.in'
+SUMFILE_NAME = 'CELEXFull_with_wugs_c75i75.sum'
 OUTFILE_NAME = 'maxent_out.csv'
 
 CONSTRAINTS_OFFSET = 3
@@ -45,7 +47,10 @@ def is_good_application(item):
     # The rules 0 -> t, 0 -> d, and 0 -> Xd all seem to apply in all cases
     # This function checks if the application is erroneous and returns
     # False if it is, True otherwise
-    change = item[2].split("(")[1].split(")")[0]
+    if DO_CONTEXTS:
+        change = item[2].split(",")[0].split("(")[1]
+    else:
+        change = item[2].split("(")[1].split(")")[0]
 
     if change == "/d" and (item[1][-1] != "d" or item[1][-2:] == "Xd"):
         return False
@@ -84,7 +89,9 @@ def build_output_file(constraint_list, constraint_violations, freq_dict):
         logprob_col = colnum_string(logprob_index + 1)
 
         sorted_violations = sorted(constraint_violations)
-        sorted_violations = [item for item in sorted_violations if is_good_application(item)]
+        sorted_violations = [
+            item for item in sorted_violations if is_good_application(item)
+        ]
 
         number_of_candidates = len(sorted_violations)
 
@@ -221,6 +228,7 @@ with open(INFILE_NAME, 'rb') as freq_file:
     with open(SUMFILE_NAME, 'rb'
             ) as input_file:
         reader = csv.reader(input_file, delimiter="\t")
+
         # Skip headers
         reader.next()
 
@@ -230,6 +238,7 @@ with open(INFILE_NAME, 'rb') as freq_file:
         freq_dict = build_freq_dict(freq_file)
 
         for row in reader:
+            # Get change
             input_form = row[3]
             output_form = row[5]
             change = row[10]
@@ -238,9 +247,20 @@ with open(INFILE_NAME, 'rb') as freq_file:
             # Get rid of morphological type
             change = "/".join(change_parts[:2])
 
-            # TODO: Get contexts
+            # Get context
+            pfeat = row[13]
+            P = row[14]
+            Q = row[16]
+            qfeat = row[17]
+
             # TODO: Deal with impugnment
-            constraint_name = "*MAP({})".format(change)
+            if DO_CONTEXTS:
+                constraint_name = "*MAP({},{}{}__{}{})".format(
+                    change, pfeat, P, Q, qfeat
+                )
+            else:
+                constraint_name = "*MAP({})".format(change)
+
             constraint_violations.append(
                 [input_form, output_form, constraint_name]
             )
